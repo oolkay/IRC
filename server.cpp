@@ -1,125 +1,80 @@
-#include "server.hpp"
+# include <sys/types.h>
+# include <sys/socket.h>
+# include <netinet/in.h>
+# include <arpa/inet.h>
+# include <netdb.h>
+# include <cstring>
+# include <cstdlib>
+# include <iostream>
+# include <vector>
+# include <map>
+# include <poll.h>
+# include <unistd.h>
+# include <fcntl.h>
+# include <sstream>
+# include <string>
+# include <cerrno>
+# include <ctime>
 
-server::server()
-{
-    sockfd = -1;
-    password = -1;
-}
 
-server::server(int port, int password)
+int main()
 {
-    this->sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    this->password = password;
-    setServerAddr(port);
-}
-
-void server::setServerAddr(int port)
-{
+    int serverfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (serverfd == -1)
+    {
+        std::cerr << "Error: socket failed" << std::endl;
+        return (1);
+    }
+    int q = 0;
+    if (setsockopt(serverfd, SOL_SOCKET, SO_REUSEADDR, &q, sizeof(int)) == -1)
+    {
+        std::cerr << "Error: setsockopt failed" << std::endl;
+        return (1);
+    }
+    struct sockaddr_in server_addr;
     server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(port);
+    server_addr.sin_port = htons(8081);
     server_addr.sin_addr.s_addr = INADDR_ANY;
-    if (fcntl(sockfd, F_SETFL, SOCK_NONBLOCK) == -1) {
-        ft_error("Setting socket to non-blocking failed");
-        exit(1);
+    if (fcntl(serverfd, F_SETFL, O_NONBLOCK) == -1)
+    {
+        std::cerr << "Error: fcntl failed" << std::endl;
+        return (1);
     }
-}
-
-server::~server()
-{
-    close(sockfd);
-}
-
-void server::setSockfd(const int sockfd)
-{
-    this->sockfd = sockfd;
-}
-
-void server::setPassword(const int password)
-{
-    this->password = password;
-}
-
-int server::getSockfd() const
-{
-    return (sockfd);
-}
-
-int server::getPassword() const
-{
-    return (password);
-}
-
-struct sockaddr_in server::getServer_addr() const
-{
-    return (server_addr);
-}
-
-void server::bindServer()
-{
-    if (bind(sockfd, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1) {
-        ft_error("Binding failed");
-        exit(1);
+    if (bind(serverfd, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1)
+    {
+        close(serverfd);
+        std::cerr << "Error: bind failed" << std::endl;
+        return (1);
     }
-}
-
-void server::listenServer()
-{
-    if (listen(sockfd, 5) == -1) {
-        ft_error("Listening failed");
-        exit(1);
+    if (listen(serverfd, 10) == -1)
+    {
+        std::cerr << "Error: listen failed" << std::endl;
+        return (1);
     }
-}
-
-void server::acceptServer()
-{
-    char *msg = strdup("Hello from server");
-    if (msg == NULL) {
-        ft_error("Memory allocation failed");
-        exit(1);
+    fd_set readfds;
+    FD_ZERO(&readfds);
+    FD_SET(serverfd, &readfds);
+    int maxfd = serverfd;
+    select(serverfd + 1, &readfds, NULL, NULL, NULL);
+    if (FD_ISSET(serverfd, &readfds))
+    {
+        std::cout << "New connection" << std::endl;
     }
-    int clientfd = accept(sockfd, NULL, NULL);
-    if (clientfd == -1) {
-        ft_error("Accepting failed");
-        free(msg);
-        exit(1);
+    struct sockaddr_in client_addr;
+    socklen_t client_addr_size = sizeof(client_addr);
+    int clientfd = accept(serverfd, (struct sockaddr *)&client_addr, &client_addr_size);
+    FD_SET(clientfd, &readfds);
+    if (clientfd == -1)
+    {
+        close(serverfd);
+        std::cerr << "Error: accept failed" << std::endl;
+        return (1);
     }
-    if (send(clientfd, msg, strlen(msg), 0) == -1) {
-        ft_error("Error in sending message");
-        free(msg);
-        close(clientfd);
-        exit(1);
-    }
-    free(msg);
+    char *msg = strdup("Hello, World! from server\r\n\n");
+    send(clientfd, msg, strlen(msg), 0);
+    close(serverfd);
     close(clientfd);
+    FD_CLR(clientfd, &readfds);
+    
+    return (0);
 }
-
-void server::sendServer()
-{
-    char *msg = strdup("Hello from server");
-    if (msg == NULL) {
-        ft_error("Memory allocation failed");
-        exit(1);
-    }
-    if (send(sockfd, msg, strlen(msg), 0) == -1) {
-        ft_error("Error in sending message");
-        free(msg);
-        exit(1);
-    }
-    free(msg);
-}
-
-void server::receiveServer()
-{
-    char buffer[1024];
-    if (recv(sockfd, buffer, sizeof(buffer), 0) == -1) {
-        ft_error("Error in receiving message");
-        exit(1);
-    }
-    std::cout << "Message from server: " << buffer << std::endl;
-}
-
-void server::closeServer()
-{
-    close(sockfd);
-}
-
