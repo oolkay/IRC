@@ -18,9 +18,41 @@
 
 #define QUEUE_SIZE 3
 
-int ft_createIPv4Socket()
+class Server
 {
-    int serverfd = socket(AF_INET, SOCK_STREAM, 0);
+    private:
+        int serverfd;
+        struct sockaddr_in server_addr;
+    public:
+        Server();
+        ~Server();
+        int ft_createIPv4Socket();
+        void ft_setIPv4Adress(int port);
+        void ft_setSocketOptions();
+        void ft_bindSocket();
+        void ft_listenPort();
+        int ft_acceptConnection();
+        int ft_sendData(int clientfd, char *data);
+        void ft_runserver();
+};
+
+//BOK YAPICI
+Server::Server()
+{
+    serverfd = -1;
+    memset(&server_addr, 0, sizeof(server_addr));
+}
+
+//BOK YIKICI
+Server::~Server()
+{
+    close(serverfd);
+
+}
+
+int Server::ft_createIPv4Socket()
+{
+    this->serverfd = socket(AF_INET, SOCK_STREAM, 0);
     if (serverfd == -1)
     {
         std::cerr << "Error: socket failed" << std::endl;
@@ -29,15 +61,15 @@ int ft_createIPv4Socket()
     return (serverfd);
 }
 
-void ft_setIPv4Adress(struct sockaddr_in *server_addr, int port)
+void Server::ft_setIPv4Adress(int port)
 {
-    memset(server_addr, 0, sizeof(*server_addr));
-    server_addr->sin_family = AF_INET;
-    server_addr->sin_port = htons(port);
-    server_addr->sin_addr.s_addr = INADDR_ANY;
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(port);
+    server_addr.sin_addr.s_addr = INADDR_ANY;
 }
 
-void ft_setSocketOptions(int serverfd)
+void Server::ft_setSocketOptions()
 {
     int q = 1;
     if (setsockopt(serverfd, SOL_SOCKET, SO_REUSEADDR, &q, sizeof(int)) == -1)
@@ -52,9 +84,9 @@ void ft_setSocketOptions(int serverfd)
     }
 }
 
-void ft_bindSocket(int serverfd, struct sockaddr_in *server_addr)
+void Server::ft_bindSocket()
 {
-    int bindResult = ::bind(serverfd, (struct sockaddr *)server_addr, sizeof(*server_addr));
+    int bindResult = ::bind(serverfd, (struct sockaddr *)&server_addr, sizeof(server_addr));
     if (bindResult == -1)
     {
         close(serverfd);
@@ -63,7 +95,7 @@ void ft_bindSocket(int serverfd, struct sockaddr_in *server_addr)
     }
 }
 
-void ft_listenPort(int serverfd)
+void Server::ft_listenPort()
 {
     int listenResult = listen(serverfd, QUEUE_SIZE);
     if (listenResult == -1)
@@ -73,7 +105,7 @@ void ft_listenPort(int serverfd)
     }
 }
 
-int ft_acceptConnection(int serverfd)
+int Server::ft_acceptConnection()
 {
     struct sockaddr_in *client_addr;
     socklen_t client_addr_size = sizeof(*client_addr);
@@ -99,7 +131,7 @@ int ft_acceptConnection(int serverfd)
     return (clientfd);
 }
 
-int ft_sendData(int clientfd, char *data)
+int Server::ft_sendData(int clientfd, char *data)
 {
     int sendResult = send(clientfd, data, strlen(data), 0);
     if (sendResult == -1)
@@ -110,14 +142,29 @@ int ft_sendData(int clientfd, char *data)
     return (sendResult);
 }
 
+void Server::ft_runserver()
+{
+    int clientfd;
+    while (true)
+    {
+        std::cout << "Waiting for connection" << std::endl;
+        clientfd = ft_acceptConnection();
+        char *data = strdup("Hello, world!");
+        ft_sendData(clientfd, data);
+    }
+}
+
 int main()
 {
-    int serverfd = ft_createIPv4Socket();
-    struct sockaddr_in server_addr;
-    ft_setIPv4Adress(&server_addr, 50000);
-    ft_setSocketOptions(serverfd);
-    ft_bindSocket(serverfd, &server_addr);
-    ft_listenPort(serverfd);
+    Server server;
+
+
+    server.ft_createIPv4Socket();
+    server.ft_setIPv4Adress(50000);
+    server.ft_setSocketOptions();
+    server.ft_bindSocket();
+    server.ft_listenPort();
+    server.ft_runserver();
 
 
     // fd_set readfds;
@@ -129,17 +176,6 @@ int main()
     // {
     //     std::cout << "New connection" << std::endl;
     // }
-    int clientfd;
-    while (true)
-    {
-        std::cout << "Waiting for connection" << std::endl;
-        clientfd = ft_acceptConnection(serverfd);
-        char *data = strdup("Hello, world!");
-        ft_sendData(clientfd, data);
-    }
-    
-    close(clientfd);
-    close(serverfd);
     
     return (0);
 }
