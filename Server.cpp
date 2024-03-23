@@ -6,8 +6,6 @@
 # include <cstring>
 # include <cstdlib>
 # include <iostream>
-# include <vector>
-# include <map>
 # include <poll.h>
 # include <unistd.h>
 # include <fcntl.h>
@@ -15,8 +13,11 @@
 # include <string>
 # include <cerrno>
 # include <ctime>
+# include "Parser.hpp"
+# include "Executer.hpp"
 
 #define QUEUE_SIZE 3
+
 
 class Server
 {
@@ -36,6 +37,8 @@ class Server
         void ft_runserver();
 };
 
+
+
 //BOK YAPICI
 Server::Server()
 {
@@ -49,6 +52,7 @@ Server::~Server()
     close(serverfd);
 
 }
+
 
 int Server::ft_createIPv4Socket()
 {
@@ -107,8 +111,9 @@ void Server::ft_listenPort()
 
 int Server::ft_acceptConnection()
 {
-    struct sockaddr_in *client_addr;
+    struct sockaddr_in *client_addr = new struct sockaddr_in();
     socklen_t client_addr_size = sizeof(*client_addr);
+    memset(client_addr, 0, client_addr_size);
     int clientfd;
     while (true)
     {
@@ -145,12 +150,24 @@ int Server::ft_sendData(int clientfd, char *data)
 void Server::ft_runserver()
 {
     int clientfd;
+    
     while (true)
     {
-        std::cout << "Waiting for connection" << std::endl;
         clientfd = ft_acceptConnection();
-        char *data = strdup("Hello, world!");
-        ft_sendData(clientfd, data);
+        char buffer[1024];
+        memset(buffer, 0, 1024);
+        int recvResult = recv(clientfd, buffer, 1024, 0);
+        if (recvResult == -1)
+        {
+            std::cerr << "Error: recv failed" << std::endl;
+            exit(1);
+        }
+        Parser parser;
+        Executer exec;
+        parser.ft_parseLine(buffer);
+        exec.ft_executeCommand(parser);
+        std::string response = "PONG";
+        close(clientfd);
     }
 }
 
@@ -167,15 +184,6 @@ int main()
     server.ft_runserver();
 
 
-    // fd_set readfds;
-    // FD_ZERO(&readfds);
-    // FD_SET(serverfd, &readfds);
-    // int maxfd = serverfd;
-    // select(serverfd + 1, &readfds, NULL, NULL, NULL);
-    // if (FD_ISSET(serverfd, &readfds))
-    // {
-    //     std::cout << "New connection" << std::endl;
-    // }
     
     return (0);
 }
