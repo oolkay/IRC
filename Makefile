@@ -3,6 +3,7 @@ NAME = irc
 FLAGS = -std=c++98 -Wall -Wextra -Werror
 SRC = Executer.cpp \
 		Parser.cpp \
+		Client.cpp \
 		Server.cpp
 
 OBJ = $(SRC:.cpp=.o)

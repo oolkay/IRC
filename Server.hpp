@@ -19,6 +19,7 @@
 # include <ctime>
 # include "Parser.hpp"
 # include "Executer.hpp"
+# include "Client.hpp"
 
 
 class Server
@@ -26,7 +27,8 @@ class Server
     private:
         int serverfd;
         struct sockaddr_in server_addr;
-        // std::map<int, Client> commands; baha krdş we need client class
+        std::map<int, Client> clients;
+        //std::map<std::string, Channel> channels; ??do we need myfriend
     public:
         Server();
         ~Server();
@@ -38,6 +40,15 @@ class Server
         int ft_acceptConnection();
         int ft_sendData(int clientfd, char *data);
         void ft_runserver();
+        void ft_handleConnection(int clientfd);
+
+        /*CLIENT FUNCTIONS*/
+        void ft_addClient(int fd);
+        void ft_removeClient(int fd);
+        void ft_sendToAllClients(char *data);
+        Client& getClientByNick(std::string nick);
+        std::map<int, Client>& getClients() { return clients; }
+
 };
 
 

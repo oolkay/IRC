@@ -16,7 +16,8 @@ class Executer
     public:
         Executer();
         ~Executer();
-        void ft_executeCommand(Parser cmd);
+        void ft_executeCommand(Parser cmd, Server& sv, int clientfd);
+        void ft_msg(Server& sv, Parser cmd, int clientfd);
 };
 
 #endif
