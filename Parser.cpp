@@ -26,12 +26,14 @@ void Parser::ft_parseLine(std::string line)
     if (line[0] == '/')
     {
         cmd = line.substr(1,  line.find(' ') - 1);
-        arg = line.substr(cmd.size() + 1);
+        if (cmd[cmd.size() - 1] == '\n')
+            cmd = cmd.substr(0, cmd.size() - 1);
+        arg = line.substr(cmd.size() + 1, line.size() - 1);
         args = line.substr(1);
         ft_parseCmd(cmd);
         ft_parseArg(arg);
         ft_parseArgs(args);
-        // ft_printParser(); debug purposes
+        // ft_printParser();
     }
     else{}
         //designi düşünmedim

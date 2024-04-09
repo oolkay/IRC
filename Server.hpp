@@ -1,0 +1,45 @@
+#ifndef SERVER_HPP
+# define SERVER_HPP
+
+# include <sys/types.h>
+# include <sys/socket.h>
+# include <netinet/in.h>
+# include <arpa/inet.h>
+# include <netdb.h>
+# include <cstring>
+# include <cstdlib>
+# include <iostream>
+# include <poll.h>
+# include <unistd.h>
+# include <fcntl.h>
+# include <sstream>
+# include <string>
+# include <map>
+# include <cerrno>
+# include <ctime>
+# include "Parser.hpp"
+# include "Executer.hpp"
+
+
+class Server
+{
+    private:
+        int serverfd;
+        struct sockaddr_in server_addr;
+        // std::map<int, Client> commands; baha krdş we need client class
+    public:
+        Server();
+        ~Server();
+        int ft_createIPv4Socket();
+        void ft_setIPv4Adress(int port);
+        void ft_setSocketOptions();
+        void ft_bindSocket();
+        void ft_listenPort();
+        int ft_acceptConnection();
+        int ft_sendData(int clientfd, char *data);
+        void ft_runserver();
+};
+
+
+
+#endif

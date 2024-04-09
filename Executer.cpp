@@ -1,4 +1,8 @@
 #include "Executer.hpp"
+#include <iostream>
+# include <fcntl.h>
+# include <unistd.h>
+# include <cstdlib>
 
 Executer::Executer()
 {
@@ -21,14 +25,14 @@ Executer::~Executer()
 
 void Executer::ft_executeCommand(Parser cmd)
 {
-    if (commands.find(cmd.getCmd()) == commands.end())
-    {
-        std::cerr << "Error: command not found" << std::endl;
-        return;
-    }
     if (cmd.getCmd() == "msg")
     {
         std::cout << "Message: " << cmd.getArg() << std::endl;
+    }
+    else if (commands.find(cmd.getCmd()) == commands.end())
+    {
+        std::cerr << "Error: command not found" << std::endl;
+        return;
     }
     else
     {

@@ -4,6 +4,10 @@
 #include <iostream>
 #include <map>
 #include "Parser.hpp"
+#include "Server.hpp"
+
+
+class Server;
 
 class Executer
 {

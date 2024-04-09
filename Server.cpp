@@ -1,42 +1,6 @@
-# include <sys/types.h>
-# include <sys/socket.h>
-# include <netinet/in.h>
-# include <arpa/inet.h>
-# include <netdb.h>
-# include <cstring>
-# include <cstdlib>
-# include <iostream>
-# include <poll.h>
-# include <unistd.h>
-# include <fcntl.h>
-# include <sstream>
-# include <string>
-# include <cerrno>
-# include <ctime>
-# include "Parser.hpp"
-# include "Executer.hpp"
+#include "Server.hpp"
 
 #define QUEUE_SIZE 3
-
-
-class Server
-{
-    private:
-        int serverfd;
-        struct sockaddr_in server_addr;
-    public:
-        Server();
-        ~Server();
-        int ft_createIPv4Socket();
-        void ft_setIPv4Adress(int port);
-        void ft_setSocketOptions();
-        void ft_bindSocket();
-        void ft_listenPort();
-        int ft_acceptConnection();
-        int ft_sendData(int clientfd, char *data);
-        void ft_runserver();
-};
-
 
 
 //BOK YAPICI
@@ -156,17 +120,35 @@ void Server::ft_runserver()
         clientfd = ft_acceptConnection();
         char buffer[1024];
         memset(buffer, 0, 1024);
-        int recvResult = recv(clientfd, buffer, 1024, 0);
-        if (recvResult == -1)
+        int pid = fork();
+        if (pid == 0)
         {
-            std::cerr << "Error: recv failed" << std::endl;
-            exit(1);
+            int recvResult = recv(clientfd, buffer, 1024, 0);
+            while (recvResult > 0)
+            {
+                Parser parser;
+                Executer exec;
+                parser.ft_parseLine(buffer);
+                if (parser.getCmd() == "exit")
+                {
+                    ft_sendData(clientfd, (char *)"Exiting...\n");
+                    close(clientfd);
+                    exit(0);
+                }
+                exec.ft_executeCommand(parser);
+                std::string response = "PONG\n";
+                ft_sendData(clientfd, (char *)response.c_str());
+                memset(buffer, 0, 1024);
+                recvResult = recv(clientfd, buffer, 1024, 0);
+            }
+            if (recvResult == -1)
+            {
+                std::cout << "recv failed" << std::endl;
+                close(clientfd);
+                exit(1);
+            }
+            exit(0);
         }
-        Parser parser;
-        Executer exec;
-        parser.ft_parseLine(buffer);
-        exec.ft_executeCommand(parser);
-        std::string response = "PONG";
         close(clientfd);
     }
 }
