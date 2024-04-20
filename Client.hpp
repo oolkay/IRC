@@ -25,6 +25,8 @@ class Client
         std::string getNickName() { return _nickName; }
         std::string getChannel() { return _channel; }
 
+        bool createClient(int clientfd);
+
 };
 
 

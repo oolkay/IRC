@@ -1,6 +1,6 @@
 CC = c++
 NAME = irc
-FLAGS = -std=c++98 -Wall -Wextra -Werror
+FLAGS = -std=c++98 #-Wall -Werror -Wextra
 SRC = Executer.cpp \
 		Parser.cpp \
 		Client.cpp \

@@ -38,7 +38,7 @@ class Server
         void ft_bindSocket();
         void ft_listenPort();
         int ft_acceptConnection();
-        int ft_sendData(int clientfd, char *data);
+        int ft_sendData(int clientfd, std::string data);
         void ft_runserver();
         void ft_handleConnection(int clientfd);
 
@@ -48,6 +48,7 @@ class Server
         void ft_sendToAllClients(char *data);
         Client& getClientByNick(std::string nick);
         std::map<int, Client>& getClients() { return clients; }
+        Client ft_createClient(int fd);
 
 };
 

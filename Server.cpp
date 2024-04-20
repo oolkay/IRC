@@ -21,10 +21,7 @@ int Server::ft_createIPv4Socket()
 {
     this->serverfd = socket(AF_INET, SOCK_STREAM, 0);
     if (serverfd == -1)
-    {
-        std::cerr << "Error: socket failed" << std::endl;
-        return (-1);
-    }
+        throw new std::runtime_error("Error: socket failed");
     return (serverfd);
 }
 
@@ -40,15 +37,9 @@ void Server::ft_setSocketOptions()
 {
     int q = 1;
     if (setsockopt(serverfd, SOL_SOCKET, SO_REUSEADDR, &q, sizeof(int)) == -1)
-    {
-        std::cerr << "Error: setsockopt failed" << strerror(errno) << std::endl;
-        exit(1);
-    }
+        throw new std::runtime_error("Error: setsockopt failed");
     if (fcntl(serverfd, F_SETFL, O_NONBLOCK) == -1)
-    {
-        std::cerr << "Error: fcntl failed" << std::endl;
-        exit(1);
-    }
+        throw new std::runtime_error("Error: fcntl failed");
 }
 
 void Server::ft_bindSocket()
@@ -57,8 +48,7 @@ void Server::ft_bindSocket()
     if (bindResult == -1)
     {
         close(serverfd);
-        std::cerr << "Error: bind faailed" << strerror(errno) <<  std::endl;
-        exit(1);
+        throw new std::runtime_error("Error: bind failed");
     }
 }
 
@@ -67,8 +57,7 @@ void Server::ft_listenPort()
     int listenResult = listen(serverfd, QUEUE_SIZE);
     if (listenResult == -1)
     {
-        std::cerr << "Error: listen failed" << std::endl;
-        exit(1);
+        throw new std::runtime_error("Error: listen failed");
     }
 }
 
@@ -78,39 +67,28 @@ int Server::ft_acceptConnection()
     socklen_t client_addr_size = sizeof(*client_addr);
     memset(client_addr, 0, client_addr_size);
     int clientfd;
-    Client client;
     while (true)
     {
         clientfd = accept(serverfd, (struct sockaddr *)client_addr, &client_addr_size);
         if (clientfd == -1)
         {
             if (errno == EAGAIN || errno == EWOULDBLOCK)
-            {
                 continue;
-            }
             else
-            {
-                close(serverfd);
-                std::cerr << "Error: accept failed" << strerror(errno) <<std::endl;
-                exit(1);
-            }
+                throw new std::runtime_error("Error: accept failed");
         }
-        Client client(clientfd);
-        clients.insert(std::pair<int, Client>(clientfd, client));
+        Client c = ft_createClient(clientfd);
+        clients.insert(std::pair<int, Client>(clientfd, c));
         break;
     }
-    std::cout << "accepted\n\n";
     return (clientfd);
 }
 
-int Server::ft_sendData(int clientfd, char *data)
+int Server::ft_sendData(int clientfd, std::string data)
 {
-    int sendResult = send(clientfd, data, strlen(data), 0);
+    int sendResult = send(clientfd, data.c_str(), data.size(), 0);
     if (sendResult == -1)
-    {
-        std::cerr << "Error: send failed" << std::endl;
-        return (-1);
-    }
+        throw new std::runtime_error("Error: send failed");
     return (sendResult);
 }
 
@@ -133,7 +111,7 @@ void Server::ft_handleConnection(int clientfd)
     Client client(clients[clientfd]);
     int pid = fork();
     if (pid == -1)
-        std::cout << "fork got fucked\n";
+        throw new std::runtime_error("Error: fork failed");
     if (pid == 0) //somehow this forks clientlerin birbirlerini bloklamasını önlüyor bro idk how
     {
         while (recvResult > 0)
@@ -141,22 +119,15 @@ void Server::ft_handleConnection(int clientfd)
             Parser parser;
             Executer exec;
             parser.ft_parseLine(buffer);
-            if (parser.getCmd() == "exit")
-            {
-                ft_sendData(clientfd, (char *)"Exiting...\n");
-                exit(0);
-            }
             exec.ft_executeCommand(parser, *this, clientfd);
-            std::string response = "PONG\n";
+            std::string response = "RESPONSE: PONG\n";
             ft_sendData(clientfd, (char *)response.c_str());
             memset(buffer, 0, 1024);
             recvResult = recv(clientfd, buffer, 1024, 0);
         }
         if (recvResult == -1)
-        {
-            std::cout << "recv failed" << std::endl;
-            exit(EXIT_FAILURE);
-        }
+            throw new std::runtime_error("Error: recv failed");
+        exit(0);
     }
 
 }
@@ -169,32 +140,37 @@ void Server::ft_runserver()
     FD_ZERO(&currentfds);
     FD_SET(serverfd, &currentfds);
     // FD_SETSIZE OPTİMUM DEĞİL O YÜZDEN SONRA DÜŞÜN 
+
     while (true)
     {
-        readfds = currentfds; // bu satır cok önemli select fonksiyonu bakacagı seti bok ettiği için her seferinde currentfds yi set ediyoruz
-        if (select(FD_SETSIZE, &readfds, NULL, NULL, NULL) == -1)
-        {
-            std::cerr << "Error: select failed" << std::endl;
-            exit(1);
-        }
-        for (int i = 0; i < FD_SETSIZE; i++)
-        {
-            if (FD_ISSET(i, &readfds))
+        // try{
+            readfds = currentfds; // bu satır cok önemli select fonksiyonu bakacagı seti bok ettiği için her seferinde currentfds yi set ediyoruz
+            if (select(FD_SETSIZE, &readfds, NULL, NULL, NULL) == -1)
+                throw new std::runtime_error("Error: select failed");
+            for (int i = 0; i < FD_SETSIZE; i++)
             {
-                if (i == serverfd)
+                if (FD_ISSET(i, &readfds))
                 {
-                    clientfd = ft_acceptConnection();
-                    FD_SET(clientfd, &currentfds);
-                }
-                else
-                {
-                    ft_handleConnection(i);
-                    close(i);
-                    ft_removeClient(i);
-                    FD_CLR(i, &currentfds);
+                    if (i == serverfd)
+                    {
+                        clientfd = ft_acceptConnection();
+                        if (clientfd != -1)
+                            FD_SET(clientfd, &currentfds);
+                    }
+                    else
+                    {
+                        ft_handleConnection(i);
+                        // close(i);
+                        // ft_removeClient(i);
+                        // FD_CLR(i, &currentfds);
+                    }
                 }
             }
-        }
+        // }
+        // catch(const std::exception& e)
+        // {
+        //     std::cerr << e.what() << '\n';
+        // }
     }
 }
 
@@ -211,27 +187,41 @@ Client& Server::getClientByNick(std::string nick)
 {
     for (std::map<int, Client>::iterator it = clients.begin(); it != clients.end(); it++)
     {
+        std::cout << it->second.getNickName() << " " << nick << std::endl;
         if (it->second.getNickName() == nick)
-        {
             return it->second;
-        }
     }
-    std::cerr << "Error: client not found" << std::endl;
-    exit(1);
+    throw new std::invalid_argument("Error: client not found");
 }
 
+Client Server::ft_createClient(int fd)
+{
+    char nickname[10];
+    
+    if (ft_sendData(fd, "Enter your nickname: ") == -1)
+        throw new std::runtime_error("Error: send failed");
+    if (read(fd, nickname, 10) == -1) //10 can be defined as NICK_LEN
+        throw new std::runtime_error("Error: read failed");
+    std::string n(nickname);
+    if (!n.empty()&& n[n.size() - 1] == '\n')
+        n = n.substr(0, n.size() - 1);
+    Client client(fd);
+    client.setNickName(n);
+    return client;
+}
 
 int main()
 {
-    Server server;
+        Server server;
 
 
-    server.ft_createIPv4Socket();
-    server.ft_setIPv4Adress(50000);
-    server.ft_setSocketOptions();
-    server.ft_bindSocket();
-    server.ft_listenPort();
-    server.ft_runserver();
+        server.ft_createIPv4Socket();
+        server.ft_setIPv4Adress(50000);
+        server.ft_setSocketOptions();
+        server.ft_bindSocket();
+        server.ft_listenPort();
+        server.ft_runserver();
+    
 
 
     

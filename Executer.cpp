@@ -50,7 +50,7 @@ void Executer::ft_msg(Server& sv, Parser cmd, int clientfd)
     }
     else
     {
-        std::cout << "Message by " << client.getNickName() << ": "<< cmd.getArg() << std::endl;
+        std::cout << "Message by " << client.getNickName() << ": "<< args[1] <<  std::endl;
     }
 
 }
@@ -69,9 +69,10 @@ void Executer::ft_executeCommand(Parser cmd, Server& sv, int clientfd)
             std::cerr << "Error: not enough arguments" << std::endl;
             return;
         }
-        Client client = sv.getClients()[clientfd];
-        client.setNickName(args[1]);
-        std::cout << "Nick changed to " << client.getNickName() << std::endl;
+        std::string nickname =args[1].substr(0, args[1].size()-1);
+        sv.getClients()[clientfd].setNickName(nickname);
+        sv.ft_sendData(clientfd, "Nickname updated-> " + sv.getClients()[clientfd].getNickName() + "\n");
+
     }
     else if (commands.find(cmd.getCmd()) == commands.end())
     {
