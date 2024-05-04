@@ -4,8 +4,11 @@
 #include <iostream>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <vector>
+#include <map>
 #include "Client.hpp"
+#include "Utils.hpp"
 // #include "Channel.hpp"
 #include <fcntl.h>
 #include <unistd.h>
@@ -24,7 +27,11 @@ class Server
         int _serverfd;
         struct sockaddr_in _server_addr;
         std::vector<Client> _clients;
+        std::map<std::string, void (Server::*)(std::string , Client&)> _commands;
         // std::vector<Channel> _channels;
+
+        fd_set _readfds;
+        fd_set _writefds;
 
         Server& operator=(const Server& other);
         Server(const Server& other);
@@ -39,7 +46,7 @@ class Server
         void closeSocket();
         void setSocketOptions();
 
-        void acceptClient();
+        int acceptClient();
         void removeClient(Client& client);        
         void addClient(Client& client);
 
@@ -48,6 +55,15 @@ class Server
         struct sockaddr_in getServerAddr() const;
         std::vector<Client&> getClients() const;
         // std::vector<Channel&> getChannels() const;
+
+
+        void monitorizeClients(fd_set& tmpread, fd_set& tmpwrite);
+        void monitorizeReads(fd_set& tmpread);
+        void monitorizeWrites(fd_set& tmpwrite);
+
+        void processCommand(std::string buffer, Client& client);
+
+        void initCommands();
 
 
 

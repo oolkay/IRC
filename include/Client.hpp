@@ -16,7 +16,8 @@ class Client
         std::string _realname;
         std::string _password;
         int _type;
-        // int _port;
+        int _port;
+        char *_ip;
 
         bool _isRegistered;
         bool _isOperator;
@@ -34,7 +35,8 @@ class Client
         inline void setRealname(std::string realname) { _realname = realname;}
         inline void setPassword(std::string password) { _password = password;}
         inline void setType(int type) { _type = type;}
-        // inline void setPort(int port)
+        inline void setPort(int port) { _port = port;}
+        inline void setIp(char *ip) { _ip = ip;}
 
         inline void setIsRegistered(bool isRegistered) { _isRegistered = isRegistered;}
         inline void setIsOperator(bool isOperator) { _isOperator = isOperator;}
@@ -47,7 +49,8 @@ class Client
         std::string getRealname() const { return _realname;}
         std::string getPassword() const { return _password;}
         int getType() const { return _type;}
-        // int getPort() const {}
+        int getPort() const { return _port;}
+        char *getIp() const { return _ip;}
 
         bool getIsRegistered() const { return _isRegistered;}
         bool getIsOperator() const { return _isOperator;}

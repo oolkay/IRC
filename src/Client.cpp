@@ -10,11 +10,13 @@ Client::Client()
     _realname = "";
     _password = -1;
     _type = -1;
-    // _port = -1;
+    _port = -1;
 
     _isRegistered = false;
     _isOperator = false;
     _isPasswordProtected = false;
+
+    _ip = NULL;
 }
 
 Client::~Client()

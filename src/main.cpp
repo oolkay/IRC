@@ -8,7 +8,7 @@ int main()
 
         server.run();
     }
-    catch(const std::exception& e)
+    catch(const Exception& e)
     {
         std::cerr << e.what() << '\n';
     }
