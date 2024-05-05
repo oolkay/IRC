@@ -6,6 +6,8 @@ Client::Client()
 {
     _clientfd = -1;
     _nickname = "";
+    _hostname = "";
+    _servername = "";
     _username = "";
     _realname = "";
     _password = -1;
@@ -27,4 +29,9 @@ Client::~Client()
 bool Client::operator==(const Client& other) const
 {
     return _clientfd == other._clientfd;
+}
+
+std::string Client::getUserByHexChat() const {
+	std::string strIP = this->_ip;
+	return this->_nickname + (this->_username.empty() ? "" : "!~" + this->_username) + (strIP.empty() ? "" : "@" + strIP);
 }

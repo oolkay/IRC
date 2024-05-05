@@ -14,6 +14,8 @@ class Client
         std::string _nickname;
         std::string _username;
         std::string _realname;
+        std::string _hostname;
+        std::string _servername;
         std::string _password;
         int _type;
         int _port;
@@ -31,6 +33,8 @@ class Client
         //Setter
         inline void setClientfd(int clientfd) { _clientfd = clientfd;}
         inline void setNickname(std::string nickname) { _nickname = nickname; }
+        inline void setHostname(std::string hostname) { _hostname = hostname; }
+        inline void setServername(std::string servername) { _servername = servername; }
         inline void setUsername(std::string username) { _username = username; }
         inline void setRealname(std::string realname) { _realname = realname;}
         inline void setPassword(std::string password) { _password = password;}
@@ -45,6 +49,8 @@ class Client
         //Getter
         inline int getClientfd() const { return _clientfd;}
         std::string getNickname() const { return _nickname;}
+        std::string getHostname() const { return _hostname;}
+        std::string getServername() const { return _servername;}
         std::string getUsername() const { return _username;}
         std::string getRealname() const { return _realname;}
         std::string getPassword() const { return _password;}
@@ -55,6 +61,7 @@ class Client
         bool getIsRegistered() const { return _isRegistered;}
         bool getIsOperator() const { return _isOperator;}
         bool getIsPasswordProtected() const { return _isPasswordProtected;}
+    	std::string			getUserByHexChat() const;
 
         bool operator==(const Client& other) const;
 };

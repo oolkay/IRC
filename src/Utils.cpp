@@ -45,4 +45,5 @@ namespace Utils
             result[i] = toupper(s[i]);
         return result;
     }
+
 }

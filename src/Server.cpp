@@ -4,7 +4,8 @@
 #include <string.h>
 #include <cerrno>
 
-Server::Server()
+Server::Server(std::string passwd, int port): 
+    _svPassword(passwd), _port(port)
 {
     createIpv4Socket();
     setSocketOptions();
@@ -36,7 +37,7 @@ void Server::bindSocket()
 {
     _server_addr.sin_family = AF_INET;
     _server_addr.sin_addr.s_addr = INADDR_ANY;
-    _server_addr.sin_port = htons(20000);
+    _server_addr.sin_port = htons(_port);
 
     if (fcntl(_serverfd, F_SETFL, O_NONBLOCK) == -1)
         throw Exception("Socket binding failed");
@@ -179,7 +180,7 @@ void Server::processCommand(std::string buffer, Client &client)
     std::cout << "Command: " << cmd << std::endl;
 
     if (_commands.find(cmd) != _commands.end())
-        (this->*_commands[cmd])(Utils::join(tokens, " ", 1), client);
+        (this->*_commands[cmd])(tokens, client);
 }
 
 
@@ -196,20 +197,105 @@ int Server::isInChannel(Client &client)
 void Server::initCommands()
 {
     _commands["PASS"] = &Server::pass;
-    _commands["NICK"] = &Server::nick;
+    // _commands["NICK"] = &Server::nick;
     _commands["USER"] = &Server::user;
-    _commands["JOIN"] = &Server::join;
-    _commands["PRIVMSG"] = &Server::privmsg;
-    _commands["TOPIC"] = &Server::topic;
-    _commands["QUIT"] = &Server::quit;
-    _commands["PART"] = &Server::part;
-    _commands["MODE"] = &Server::mode;
-    _commands["LIST"] = &Server::list;
-    _commands["KICK"] = &Server::kick;
-    _commands["INVITE"] = &Server::invite;
-    _commands["WHO"] = &Server::who;
-    _commands["OP"] = &Server::op;
-    _commands["PING"] = &Server::ping;
-    _commands["NOTICE"] = &Server::notice;
-    _commands["WHOIS"] = &Server::whois;
+    // _commands["JOIN"] = &Server::join;
+    // _commands["PRIVMSG"] = &Server::privmsg;
+    // _commands["TOPIC"] = &Server::topic;
+    // _commands["QUIT"] = &Server::quit;
+    // _commands["PART"] = &Server::part;
+    // _commands["MODE"] = &Server::mode;
+    // _commands["LIST"] = &Server::list;
+    // _commands["KICK"] = &Server::kick;
+    // _commands["INVITE"] = &Server::invite;
+    // _commands["WHO"] = &Server::who;
+    // _commands["OP"] = &Server::op;
+    // _commands["PING"] = &Server::ping;
+    // _commands["NOTICE"] = &Server::notice;
+    // _commands["WHOIS"] = &Server::whois;
+}
+
+void Server::pass(std::vector<std::string> buffer, Client &client)
+{
+    std::cout << "Pass command" << std::endl;
+    if (client.getIsPasswordProtected())
+    {
+        std::string message = ERR_ALREADYREGISTRED(client.getUserByHexChat());
+        send(client.getClientfd(), message.c_str(), message.size(), 0);
+    }
+    else
+    {
+        if (buffer.size() != 2)
+        {
+            if (buffer.size() < 2){
+                std::string message = ERR_NEEDMOREPARAMS(client.getUserByHexChat(),"PASS");
+                send(client.getClientfd(), message.c_str(), message.size(), 0);
+            }
+            else
+            {
+                std::string message = "1 parameter is allowed for PASS command\n";
+                send(client.getClientfd(), message.c_str(), message.size(), 0);
+            }
+        }
+        else if(buffer.size() == 2)
+        {
+            if (buffer[1] == _svPassword)
+            {
+                client.setIsPasswordProtected(true);
+                std::string message = "Password accepted\n";
+                send(client.getClientfd(), message.c_str(), message.size(), 0);
+            }
+            else
+            {
+                std::string message = ERR_PASSWDMISMATCH(client.getUserByHexChat());
+                send(client.getClientfd(), message.c_str(), message.size(), 0);
+            }
+        }
+    }
+}
+
+void Server::user(std::vector<std::string> buffer, Client &client)
+{
+    std::cout << "User command" << std::endl;
+    if (!client.getIsPasswordProtected())
+    {
+        std::string message = ERR_NOTPASSWORDED(client.getUserByHexChat());
+        send(client.getClientfd(), message.c_str(), message.size(), 0);
+    }
+    else if(client.getNickname().empty())
+    {
+        std::string message = ERR_NONICKNAMEGIVEN(client.getUserByHexChat());
+        send(client.getClientfd(), message.c_str(), message.size(), 0);
+    }
+    else if (client.getIsRegistered())
+    {
+        std::string message = ERR_ALREADYREGISTRED(client.getUserByHexChat());
+        send(client.getClientfd(), message.c_str(), message.size(), 0);
+    }
+    else
+    {
+        if (buffer.size() != 5)
+        {
+            if (buffer.size() < 5)
+            {
+                std::string message = ERR_NEEDMOREPARAMS(client.getUserByHexChat(),"USER");
+                send(client.getClientfd(), message.c_str(), message.size(), 0);
+            }
+            else
+            {
+                std::string message = "4 parameters are allowed for USER command\n";
+                send(client.getClientfd(), message.c_str(), message.size(), 0);
+            }
+        }
+        else if(buffer.size() == 5)
+        {
+            client.setUsername(buffer[1]);
+            client.setHostname(buffer[2]);
+            client.setServername(buffer[3]);
+            client.setRealname(buffer[4]);
+            client.setIsRegistered(true);
+            std::string message = "Successfully registered user\n";
+            send(client.getClientfd(), message.c_str(), message.size(), 0);
+        }
+    }
 }

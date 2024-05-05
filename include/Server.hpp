@@ -14,6 +14,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include "Protocol.hpp"
+#include <stdlib.h>
 
 
 #define QUEUE_SIZE 10 
@@ -27,8 +28,10 @@ class Server
     private:
         int _serverfd;
         struct sockaddr_in _server_addr;
+        std::string _svPassword;
+        int _port;
         std::vector<Client> _clients;
-        std::map<std::string, void (Server::*)(std::string , Client&)> _commands;
+        std::map<std::string, void (Server::*)(std::vector<std::string> , Client&)> _commands;
         std::vector<Channel> _channels;
 
         fd_set _readfds;
@@ -38,7 +41,7 @@ class Server
         Server(const Server& other);
 
     public:
-        Server();
+        Server(std::string passwd, int port);
         ~Server();
         void run();
         void createIpv4Socket();
@@ -68,23 +71,23 @@ class Server
 
         int isInChannel(Client& client);
 
-        void pass(std::string buffer, Client& client);
-        void nick(std::string buffer, Client& client);
-        void user(std::string buffer, Client& client);
-        void join(std::string buffer, Client& client);
-        void privmsg(std::string buffer, Client& client);
-        void topic(std::string buffer, Client& client);
-        void quit(std::string buffer, Client& client);
-        void part(std::string buffer, Client& client);
-        void mode(std::string buffer, Client& client);
-        void list(std::string buffer, Client& client);
-        void kick(std::string buffer, Client& client);
-        void invite(std::string buffer, Client& client);
-        void who(std::string buffer, Client& client);
-        void op(std::string buffer, Client& client);
-        void ping(std::string buffer, Client& client);
-        void notice(std::string buffer, Client& client);
-        void whois(std::string buffer, Client& client);
+        void pass(std::vector<std::string> buffer, Client& client);
+        void nick(std::vector<std::string> buffer, Client& client);
+        void user(std::vector<std::string> buffer, Client& client);
+        void join(std::vector<std::string> buffer, Client& client);
+        void privmsg(std::vector<std::string> buffer, Client& client);
+        void topic(std::vector<std::string> buffer, Client& client);
+        void quit(std::vector<std::string> buffer, Client& client);
+        void part(std::vector<std::string> buffer, Client& client);
+        void mode(std::vector<std::string> buffer, Client& client);
+        void list(std::vector<std::string> buffer, Client& client);
+        void kick(std::vector<std::string> buffer, Client& client);
+        void invite(std::vector<std::string> buffer, Client& client);
+        void who(std::vector<std::string> buffer, Client& client);
+        void op(std::vector<std::string> buffer, Client& client);
+        void ping(std::vector<std::string> buffer, Client& client);
+        void notice(std::vector<std::string> buffer, Client& client);
+        void whois(std::vector<std::string> buffer, Client& client);
         
 
         

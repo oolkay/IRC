@@ -10,4 +10,4 @@ compile:
 
 run:
 	@echo "Running..."
-	@./$(NAME)
+	@./$(NAME) 123 50000

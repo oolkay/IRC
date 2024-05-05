@@ -1,4 +1,5 @@
-#pragma once
+#ifndef PROTOCOL_HPP
+#define PROTOCOL_HPP
 // myrpls
 #define ERR_NOTPASSWORDED(source) ": 002 " + source + " :Your connection is not passworded\r\n"
 //
@@ -306,3 +307,5 @@
                   user mode for a user other than themselves.
 
 */
+
+#endif
