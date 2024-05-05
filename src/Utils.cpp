@@ -38,6 +38,30 @@ namespace Utils
         return result;
     }
 
+    void ut_write(int fd, const std::string &s)
+    {
+        write(fd, s.c_str(), s.size());
+    }
+
+    void ut_send(int fd, const std::string &s)
+    {
+        send(fd, s.c_str(), s.size(), 0);
+    }
+
+    std::string getTime()
+    {
+    	time_t now = time(0);
+    		tm *ltm = localtime(&now);
+    		std::stringstream ss;
+    		ss 	<< std::setfill('0') << std::setw(2) << ltm->tm_mday << '-'
+    			<< std::setfill('0') << std::setw(2) << (1 + ltm->tm_mon) << '-'
+    			<< std::setfill('0') << std::setw(4) << (1900 + ltm->tm_year) << ' '
+    			<< std::setfill('0') << std::setw(2) << ltm->tm_hour << ':'
+    			<< std::setfill('0') << std::setw(2) << ltm->tm_min << ':'
+    			<< std::setfill('0') << std::setw(2) << ltm->tm_sec;
+    		return ss.str();
+    }
+
     std::string toUpper(const std::string &s)
     {
         std::string result = s;

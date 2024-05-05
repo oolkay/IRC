@@ -129,7 +129,6 @@ void Server::run()
 }
 
 
-
 void Server::monitorizeClients(fd_set &tmpread, fd_set &tmpwrite)
 {
     monitorizeReads(tmpread);
@@ -197,7 +196,7 @@ int Server::isInChannel(Client &client)
 void Server::initCommands()
 {
     _commands["PASS"] = &Server::pass;
-    // _commands["NICK"] = &Server::nick;
+    _commands["NICK"] = &Server::nick;
     _commands["USER"] = &Server::user;
     // _commands["JOIN"] = &Server::join;
     // _commands["PRIVMSG"] = &Server::privmsg;
@@ -213,6 +212,21 @@ void Server::initCommands()
     // _commands["PING"] = &Server::ping;
     // _commands["NOTICE"] = &Server::notice;
     // _commands["WHOIS"] = &Server::whois;
+}
+void Server::texter(std::string message, std::ostream &os, std::string color)
+{
+    os << WHITE << "[ " <<Utils::getTime() << " ] "<< color << message << RESET << std::endl;
+}
+
+bool Server::isNicknameInUse(std::string nickname)
+{
+    std::vector<Client>::iterator it;
+    for (it = _clients.begin(); it != _clients.end(); ++it)
+    {
+        if (it->getNickname() == nickname)
+            return true;
+    }
+    return false;
 }
 
 void Server::pass(std::vector<std::string> buffer, Client &client)
@@ -252,6 +266,69 @@ void Server::pass(std::vector<std::string> buffer, Client &client)
             }
         }
     }
+}
+void Server::nick(std::vector<std::string> buffer, Client &client)
+{
+	if (!client.getIsPasswordProtected())
+	{
+		Utils::ut_write(client.getClientfd(), ERR_NOTPASSWORDED(client.getUserByHexChat()));
+		return;
+	}
+	std::string nickname;
+	if (buffer.size() < 2)
+	{
+		Utils::ut_write(client.getClientfd(), ERR_NONICKNAMEGIVEN(client.getUserByHexChat()));
+		return;
+	}
+	else if (buffer[1].size() > 9 || buffer[1].size() < 1)
+	{
+		Utils::ut_write(client.getClientfd(), ERR_ERRONEUSNICKNAME(client.getUserByHexChat(), buffer[0]));
+		return;
+	}
+	nickname = buffer[1];
+	if (nickname[0] == '#')
+	{
+		Utils::ut_write(client.getClientfd(), ERR_ERRONEUSNICKNAME(client.getUserByHexChat(), nickname));
+		return;
+	}
+	
+    if (client.getNickname() != nickname && isNicknameInUse(nickname))
+    {
+        Utils::ut_write(client.getClientfd(), ERR_NICKNAMEINUSE(client.getUserByHexChat(), nickname));
+        return;
+    }
+
+	std::string oldnickname = client.getNickname();
+	if (!client.getNickname().empty())
+        texter("user " + client.getNickname() + " has changed nickname to " + nickname, std::cout, MAGENTA);
+	client.setNickname(nickname);
+    Utils::ut_write(client.getClientfd(), RPL_NICK(oldnickname, client.getUsername(), client.getIp(), nickname));
+	FD_SET(client.getClientfd(), &_writefds);
+
+    std::vector<Channel>::iterator it;
+	for (it = _channels.begin(); it != _channels.end(); ++it)
+	{
+        std::vector<Client>::iterator cit;
+
+		for (cit = it->getClients().begin(); cit != it->getClients().end(); ++cit)
+		{
+			if (oldnickname == cit->getNickname())
+			{
+				cit->setNickname(nickname);
+				it->sendToAll(RPL_NICK(oldnickname, client.getUsername(), client.getIp(), nickname));
+				// responseAllClientResponseToGui(*cit, *it);
+				break;
+			}
+		}
+	}
+	if (client.getIsRegistered() == false && !client.getUsername().empty() && !client.getRealname().empty())
+	{
+		client.setIsRegistered(true);
+		Utils::ut_write(client.getClientfd(), RPL_WELCOME(client.getNickname(), client.getUserByHexChat()));
+        Server::texter("user " + client.getNickname() + " has been registered", std::cout, MAGENTA);
+	}
+
+
 }
 
 void Server::user(std::vector<std::string> buffer, Client &client)

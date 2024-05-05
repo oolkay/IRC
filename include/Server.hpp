@@ -11,6 +11,7 @@
 #include "Client.hpp"
 #include "Utils.hpp"
 #include "Channel.hpp"
+#include "Defines.hpp"
 #include <fcntl.h>
 #include <unistd.h>
 #include "Protocol.hpp"
@@ -88,8 +89,10 @@ class Server
         void ping(std::vector<std::string> buffer, Client& client);
         void notice(std::vector<std::string> buffer, Client& client);
         void whois(std::vector<std::string> buffer, Client& client);
-        
 
+        bool isNicknameInUse(std::string nickname);
+        
+        static void texter(std::string message, std::ostream& os, std::string color);
         
 
 

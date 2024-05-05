@@ -103,7 +103,16 @@ void Channel::removeInvList(Client& client)
             {
                 _invList.erase(it);
                 break;
-            }
+            } 07:51:51 ] user omer has changed nickname to baha
         }
+    }
+}
+void Channel::sendToAll(std::string message)
+{
+    std::vector<Client>::iterator it;
+
+    for (it = _clients.begin(); it != _clients.end(); it++)
+    {
+        Utils::ut_send(it->getClientfd(), message + "\n");
     }
 }

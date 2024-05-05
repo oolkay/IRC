@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <iomanip>
+#include <sstream>
 #include "../include/Server.hpp"
 #include "../include/Client.hpp"
 
@@ -21,7 +22,6 @@ namespace Utils
     void ut_write(int fd, const std::string &s);
     void ut_send(int fd, const std::string &s);
     void ut_sendall(int fd, const std::string &s, Server &server);
-    int getMaxFd(int serverfd, const std::vector<Client> &clients);
     std::string getTime();
     std::string toUpper(const std::string &s);
 }

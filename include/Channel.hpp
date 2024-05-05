@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include "Client.hpp"
+#include "Utils.hpp"
 
 class Client;
 
