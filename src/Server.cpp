@@ -10,6 +10,7 @@ Server::Server()
     setSocketOptions();
     bindSocket();
     listenSocket();
+    initCommands();
 }
 
 Server::~Server()
@@ -194,8 +195,21 @@ int Server::isInChannel(Client &client)
 
 void Server::initCommands()
 {
-    // _commands["PASS"] = &Server::joinChannel;
-    // _commands["NICK"] = &Server::leaveChannel;
-    // _commands["USER"] = &Server::listChannels;
-    // _commands["PRIVMSG"] = &Server::sendMessage;
+    _commands["PASS"] = &Server::pass;
+    _commands["NICK"] = &Server::nick;
+    _commands["USER"] = &Server::user;
+    _commands["JOIN"] = &Server::join;
+    _commands["PRIVMSG"] = &Server::privmsg;
+    _commands["TOPIC"] = &Server::topic;
+    _commands["QUIT"] = &Server::quit;
+    _commands["PART"] = &Server::part;
+    _commands["MODE"] = &Server::mode;
+    _commands["LIST"] = &Server::list;
+    _commands["KICK"] = &Server::kick;
+    _commands["INVITE"] = &Server::invite;
+    _commands["WHO"] = &Server::who;
+    _commands["OP"] = &Server::op;
+    _commands["PING"] = &Server::ping;
+    _commands["NOTICE"] = &Server::notice;
+    _commands["WHOIS"] = &Server::whois;
 }

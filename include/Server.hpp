@@ -68,7 +68,24 @@ class Server
 
         int isInChannel(Client& client);
 
-
+        void pass(std::string buffer, Client& client);
+        void nick(std::string buffer, Client& client);
+        void user(std::string buffer, Client& client);
+        void join(std::string buffer, Client& client);
+        void privmsg(std::string buffer, Client& client);
+        void topic(std::string buffer, Client& client);
+        void quit(std::string buffer, Client& client);
+        void part(std::string buffer, Client& client);
+        void mode(std::string buffer, Client& client);
+        void list(std::string buffer, Client& client);
+        void kick(std::string buffer, Client& client);
+        void invite(std::string buffer, Client& client);
+        void who(std::string buffer, Client& client);
+        void op(std::string buffer, Client& client);
+        void ping(std::string buffer, Client& client);
+        void notice(std::string buffer, Client& client);
+        void whois(std::string buffer, Client& client);
+        
 
         
 
