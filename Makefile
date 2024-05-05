@@ -1,4 +1,4 @@
-SRC = src/Client.cpp src/Exception.cpp src/Server.cpp src/main.cpp src/Utils.cpp
+SRC = src/Client.cpp src/Exception.cpp src/Server.cpp src/main.cpp src/Utils.cpp src/Channel.cpp
 NAME = irc
 
 all: compile

@@ -1,6 +1,8 @@
 #include "../include/Server.hpp"
 #include "../include/Exception.hpp"
+#include "../include/Channel.hpp"
 #include <string.h>
+#include <cerrno>
 
 Server::Server()
 {
@@ -33,7 +35,7 @@ void Server::bindSocket()
 {
     _server_addr.sin_family = AF_INET;
     _server_addr.sin_addr.s_addr = INADDR_ANY;
-    _server_addr.sin_port = htons(50000);
+    _server_addr.sin_port = htons(20000);
 
     if (fcntl(_serverfd, F_SETFL, O_NONBLOCK) == -1)
         throw Exception("Socket binding failed");
@@ -57,6 +59,7 @@ int Server::acceptClient()
 {
     struct sockaddr_in client_addr;
     socklen_t client_addr_size = sizeof(client_addr);
+    memset(&client_addr, 0, sizeof(client_addr));
     int clientfd = accept(_serverfd, (struct sockaddr*)&client_addr, &client_addr_size);
     if(clientfd == -1)
         throw Exception("Client accept failed");
@@ -96,8 +99,11 @@ void Server::run()
         {
             tmpreadfds = _readfds; // bu satır cok önemli select fonksiyonu bakacagı seti bok ettiği için her seferinde tmpfds yi set ediyoruz
             tmpwritefds = _writefds;
-            if (select(FD_SETSIZE, &tmpreadfds, NULL, 0, 0) == -1)
+            if (select(FD_SETSIZE, &tmpreadfds, NULL, NULL, NULL) == -1)
+            {
+                std::cerr << strerror(errno) << std::endl;   
                 throw Exception("Error: select failed");
+            }
             isReadySelect = false;
         }
 
@@ -106,8 +112,9 @@ void Server::run()
         {
             std::cout << "Server is set" << std::endl;
             clientfd = acceptClient();
+
             FD_SET(clientfd, &_readfds);
-            std::cout << "Client accepted" << std::endl;
+            std::cout << "Client accepted" << clientfd <<std::endl;
             isReadySelect = true;
         }
         else if (!isReadySelect) // IS CLIENT SET
@@ -143,9 +150,10 @@ void Server::monitorizeReads(fd_set &tmpread)
                 std::cout << "Client disconnected" << std::endl;
                 FD_CLR(it->getClientfd(), &_readfds);
                 FD_CLR(it->getClientfd(), &_writefds);
-                // int chIndx = isInChannel(*it);
-                // if (chIndx != -1)
-                //     _channels[chIndx].removeClient(*it);
+                close(it->getClientfd());
+                int chIndx = isInChannel(*it);
+                if (chIndx != -1)
+                    _channels[chIndx].removeClient(*it);
                 _clients.erase(it);
                 // TextEngine::blue("Client ", TextEngine::printTime(cout)) << a->_ip << ":" << a->getPort() << " disconnected" << std::endl;
 
@@ -174,6 +182,16 @@ void Server::processCommand(std::string buffer, Client &client)
         (this->*_commands[cmd])(Utils::join(tokens, " ", 1), client);
 }
 
+
+int Server::isInChannel(Client &client)
+{
+    for (size_t i = 0; i < _channels.size(); i++)
+    {
+        if (_channels[i].isClientInChannel(client))
+            return i;
+    }
+    return -1;
+}
 
 void Server::initCommands()
 {

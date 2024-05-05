@@ -55,6 +55,8 @@ class Client
         bool getIsRegistered() const { return _isRegistered;}
         bool getIsOperator() const { return _isOperator;}
         bool getIsPasswordProtected() const { return _isPasswordProtected;}
+
+        bool operator==(const Client& other) const;
 };
 
 #endif

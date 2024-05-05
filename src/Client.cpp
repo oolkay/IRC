@@ -21,6 +21,10 @@ Client::Client()
 
 Client::~Client()
 {
-    if(_clientfd != -1)
-        close(_clientfd);
+
+}
+
+bool Client::operator==(const Client& other) const
+{
+    return _clientfd == other._clientfd;
 }

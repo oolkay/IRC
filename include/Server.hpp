@@ -3,13 +3,14 @@
 
 #include <iostream>
 #include <sys/socket.h>
+#include <sys/select.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <vector>
 #include <map>
 #include "Client.hpp"
 #include "Utils.hpp"
-// #include "Channel.hpp"
+#include "Channel.hpp"
 #include <fcntl.h>
 #include <unistd.h>
 #include "Protocol.hpp"
@@ -19,7 +20,7 @@
 
 
 class Client;
-// class Channel;
+class Channel;
 
 class Server
 {
@@ -28,7 +29,7 @@ class Server
         struct sockaddr_in _server_addr;
         std::vector<Client> _clients;
         std::map<std::string, void (Server::*)(std::string , Client&)> _commands;
-        // std::vector<Channel> _channels;
+        std::vector<Channel> _channels;
 
         fd_set _readfds;
         fd_set _writefds;
@@ -53,8 +54,8 @@ class Server
         //Getter
         int getServerfd() const;
         struct sockaddr_in getServerAddr() const;
-        std::vector<Client&> getClients() const;
-        // std::vector<Channel&> getChannels() const;
+        std::vector<Client>& getClients() { return _clients; };
+        std::vector<Channel>& getChannels() { return _channels; }; ;
 
 
         void monitorizeClients(fd_set& tmpread, fd_set& tmpwrite);
@@ -64,6 +65,8 @@ class Server
         void processCommand(std::string buffer, Client& client);
 
         void initCommands();
+
+        int isInChannel(Client& client);
 
 
 
