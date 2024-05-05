@@ -95,7 +95,7 @@ void Server::run()
 
     while(true)
     {
-        while (isReadySelect)
+        if (isReadySelect)
         {
             tmpreadfds = _readfds; // bu satır cok önemli select fonksiyonu bakacagı seti bok ettiği için her seferinde tmpfds yi set ediyoruz
             tmpwritefds = _writefds;
@@ -121,6 +121,7 @@ void Server::run()
         {
             std::cout << "Client is set" << std::endl;
             monitorizeReads(tmpreadfds);
+            isReadySelect = true;
         }
     }
 }
@@ -156,14 +157,12 @@ void Server::monitorizeReads(fd_set &tmpread)
                     _channels[chIndx].removeClient(*it);
                 _clients.erase(it);
                 // TextEngine::blue("Client ", TextEngine::printTime(cout)) << a->_ip << ":" << a->getPort() << " disconnected" << std::endl;
-
             }
             else
             {
                 std::cout << "Read size: " << read_size << std::endl;
-                buffer[read_size] = '\0';
+                buffer[read_size-1] = '\0';
                 processCommand(buffer, *it);
-
             }
         }
     }
