@@ -1,20 +1,20 @@
-#ifndef EXCEPTION_HPP
-#define EXCEPTION_HPP
+#pragma once
 
+#include <stdexcept>
 #include <string>
-#include <exception>
+#include "Define.hpp"
+#include <vector>
+using namespace std;
 
 class Exception : public std::exception
 {
-    private:
-        std::string _message;
-    public:
-        Exception(std::string message) : _message(message) {}
-        virtual const char* what() const throw()
-        {
-            return _message.c_str();
-        }
-        virtual ~Exception() throw() {}
+	public:
+		Exception(C_STR_REF message) : message(message) {}
+		virtual const char* what() const throw()
+		{
+			return message.c_str();
+		}
+		virtual ~Exception() throw() {}
+	private:
+		std::string message;
 };
-
-#endif

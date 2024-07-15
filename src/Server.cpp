@@ -1,378 +1,377 @@
-#include "../include/Server.hpp"
-#include "../include/Exception.hpp"
-#include "../include/Channel.hpp"
+#include "Server.hpp"
+#include "Exception.hpp"
+#include "Utils.hpp"
+#include "TextEngine.hpp"
+#include "Client.hpp"
+#include "ErrorRPL.hpp"
+#include "CommandRPL.hpp"
+#include "Room.hpp"
+#include <string>
+#include <iostream>
+#include <sys/socket.h>
 #include <string.h>
-#include <cerrno>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <sys/select.h>
+#include "Define.hpp"
+#include <fcntl.h>
 
-Server::Server(std::string passwd, int port): 
-    _svPassword(passwd), _port(port)
+using std::cout;
+
+Server::Server(C_STR_REF port, C_STR_REF password)
+	: port(0), password(password)
 {
-    createIpv4Socket();
-    setSocketOptions();
-    bindSocket();
-    listenSocket();
-    initCommands();
+	try
+	{
+		this->port = Utils::ft_stoi(port);
+		if (this->port < 0 || this->port > 65535)
+		{
+			throw Exception("Invalid port");
+		}
+		initSocket();
+		initFunctions();
+	}
+	catch (const Exception &e)
+	{
+		throw e;
+	}
+}
+
+Server::Server(const Server &other)
+	: port(other.port), password(other.password)
+{
+	*this = other;
+}
+
+Server &Server::operator=(const Server &other)
+{
+	if (this != &other)
+	{
+		this->port = other.port;
+		this->password = other.password;
+		this->_socket = other._socket;
+		this->clients = other.clients;
+		this->channels = other.channels;
+		this->clientAddress = other.clientAddress;
+		this->address = other.address;
+		this->readfds = other.readfds;
+		this->writefds = other.writefds;
+		this->readFdsCopy = other.readFdsCopy;
+		this->writeFdsCopy = other.writeFdsCopy;
+	}
+	return *this;
 }
 
 Server::~Server()
 {
-    closeSocket();
+	for (VECT_ITER_CLI it = clients.begin(); it != clients.end(); it++)
+	{
+		close(it->getFd());
+	}
+	if (this->_socket > 0)
+	{
+		close(this->_socket);
+	}
+	this->clients.clear();
+	this->channels.clear();
+	TextEngine::red("Server closed", TextEngine::printTime(cout)) << std::endl;
 }
-
-void Server::createIpv4Socket()
-{
-    _serverfd = socket(AF_INET, SOCK_STREAM, 0);
-    if(_serverfd == -1)
-        throw Exception("Socket creation failed");
-}
-
-void Server::setSocketOptions()
-{
-    int opt = 1;
-    if(setsockopt(_serverfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1)
-        throw Exception("Socket options setting failed");
-}
-
-void Server::bindSocket()
-{
-    _server_addr.sin_family = AF_INET;
-    _server_addr.sin_addr.s_addr = INADDR_ANY;
-    _server_addr.sin_port = htons(_port);
-
-    if (fcntl(_serverfd, F_SETFL, O_NONBLOCK) == -1)
-        throw Exception("Socket binding failed");
-    if (bind(_serverfd, (struct sockaddr*)&_server_addr, sizeof(_server_addr)) == -1)
-        throw Exception("Socket binding failed");
-}
-
-void Server::listenSocket()
-{
-    if (listen(_serverfd, QUEUE_SIZE) == -1)
-        throw Exception("Socket listening failed");
-}
-
-void Server::closeSocket()
-{
-    if(_serverfd != -1)
-        close(_serverfd);
-}
-
-int Server::acceptClient()
-{
-    struct sockaddr_in client_addr;
-    socklen_t client_addr_size = sizeof(client_addr);
-    memset(&client_addr, 0, sizeof(client_addr));
-    int clientfd = accept(_serverfd, (struct sockaddr*)&client_addr, &client_addr_size);
-    if(clientfd == -1)
-        throw Exception("Client accept failed");
-    if (fcntl(clientfd, F_SETFL, O_NONBLOCK) == -1)
-        throw Exception("Client accept failed");
-    int port = ntohs(client_addr.sin_port);
-    char *ip = inet_ntoa(client_addr.sin_addr);
-
-    Client client;
-
-    client.setClientfd(clientfd);
-    client.setPort(port);
-    client.setIp(ip);
-    _clients.push_back(client);
-    return clientfd;
-}
-
 
 void Server::run()
 {
-    fd_set tmpreadfds;
-    fd_set tmpwritefds;
-    int clientfd;
-    bool isReadySelect = true;
+	socklen_t templen = sizeof(sockaddr_in);
+ 	bool isReadyToSelect = true;
+	int bytesRead = 0;
 
-    FD_ZERO(&_readfds);
-    FD_ZERO(&_writefds);
-    FD_ZERO(&tmpreadfds);
-    FD_ZERO(&tmpwritefds);
-    FD_SET(_serverfd, &_readfds);
+	FD_ZERO(&readfds);
+	FD_ZERO(&writefds);
+	FD_ZERO(&readFdsCopy);
+	FD_ZERO(&writeFdsCopy);
 
-    // int maxfd = _serverfd;
-
-    while(true)
-    {
-        if (isReadySelect)
-        {
-            tmpreadfds = _readfds; // bu satır cok önemli select fonksiyonu bakacagı seti bok ettiği için her seferinde tmpfds yi set ediyoruz
-            tmpwritefds = _writefds;
-            if (select(FD_SETSIZE, &tmpreadfds, NULL, NULL, NULL) == -1)
-            {
-                std::cerr << strerror(errno) << std::endl;   
-                throw Exception("Error: select failed");
-            }
-            isReadySelect = false;
-        }
-
-        // IS SERVER SET
-        if (FD_ISSET(_serverfd, &tmpreadfds) && !isReadySelect)
-        {
-            std::cout << "Server is set" << std::endl;
-            clientfd = acceptClient();
-
-            FD_SET(clientfd, &_readfds);
-            std::cout << "Client accepted" << clientfd <<std::endl;
-            isReadySelect = true;
-        }
-        else if (!isReadySelect) // IS CLIENT SET
-        {
-            std::cout << "Client is set" << std::endl;
-            monitorizeReads(tmpreadfds);
-            isReadySelect = true;
-        }
-    }
-}
-
-
-void Server::monitorizeClients(fd_set &tmpread, fd_set &tmpwrite)
-{
-    monitorizeReads(tmpread);
-    (void) tmpwrite;
-    // monitorizeWrites(tmpwrite);
-}
-
-void Server::monitorizeReads(fd_set &tmpread)
-{
-    std::cout << "Monitorize reads" << std::endl;
-    std::vector<Client>::iterator it;
-
-    for (it = _clients.begin(); it != _clients.end(); it++)
-    {
-        if (FD_ISSET(it->getClientfd(), &tmpread))
-        {
-            char buffer[1024];
-            int read_size = read(it->getClientfd(), buffer, 1024);
-            if (read_size <= 0)
-            {
-                std::cout << "Client disconnected" << std::endl;
-                FD_CLR(it->getClientfd(), &_readfds);
-                FD_CLR(it->getClientfd(), &_writefds);
-                close(it->getClientfd());
-                int chIndx = isInChannel(*it);
-                if (chIndx != -1)
-                    _channels[chIndx].removeClient(*it);
-                _clients.erase(it);
-                // TextEngine::blue("Client ", TextEngine::printTime(cout)) << a->_ip << ":" << a->getPort() << " disconnected" << std::endl;
-            }
-            else
-            {
-                std::cout << "Read size: " << read_size << std::endl;
-                buffer[read_size-1] = '\0';
-                processCommand(buffer, *it);
-            }
-        }
-    }
-    
-}
-
-void Server::processCommand(std::string buffer, Client &client)
-{
-    std::vector<std::string> tokens = Utils::split(buffer, ' ');
-    std::string cmd = tokens[0];
-    cmd = Utils::toUpper(cmd);
-    std::cout << "Buffer: " << buffer << std::endl;
-    std::cout << "Command: " << cmd << std::endl;
-
-    if (_commands.find(cmd) != _commands.end())
-        (this->*_commands[cmd])(tokens, client);
-}
-
-
-int Server::isInChannel(Client &client)
-{
-    for (size_t i = 0; i < _channels.size(); i++)
-    {
-        if (_channels[i].isClientInChannel(client))
-            return i;
-    }
-    return -1;
-}
-
-void Server::initCommands()
-{
-    _commands["PASS"] = &Server::pass;
-    _commands["NICK"] = &Server::nick;
-    _commands["USER"] = &Server::user;
-    // _commands["JOIN"] = &Server::join;
-    // _commands["PRIVMSG"] = &Server::privmsg;
-    // _commands["TOPIC"] = &Server::topic;
-    // _commands["QUIT"] = &Server::quit;
-    // _commands["PART"] = &Server::part;
-    // _commands["MODE"] = &Server::mode;
-    // _commands["LIST"] = &Server::list;
-    // _commands["KICK"] = &Server::kick;
-    // _commands["INVITE"] = &Server::invite;
-    // _commands["WHO"] = &Server::who;
-    // _commands["OP"] = &Server::op;
-    // _commands["PING"] = &Server::ping;
-    // _commands["NOTICE"] = &Server::notice;
-    // _commands["WHOIS"] = &Server::whois;
-}
-void Server::texter(std::string message, std::ostream &os, std::string color)
-{
-    os << WHITE << "[ " <<Utils::getTime() << " ] "<< color << message << RESET << std::endl;
-}
-
-bool Server::isNicknameInUse(std::string nickname)
-{
-    std::vector<Client>::iterator it;
-    for (it = _clients.begin(); it != _clients.end(); ++it)
-    {
-        if (it->getNickname() == nickname)
-            return true;
-    }
-    return false;
-}
-
-void Server::pass(std::vector<std::string> buffer, Client &client)
-{
-    std::cout << "Pass command" << std::endl;
-    if (client.getIsPasswordProtected())
-    {
-        std::string message = ERR_ALREADYREGISTRED(client.getUserByHexChat());
-        send(client.getClientfd(), message.c_str(), message.size(), 0);
-    }
-    else
-    {
-        if (buffer.size() != 2)
-        {
-            if (buffer.size() < 2){
-                std::string message = ERR_NEEDMOREPARAMS(client.getUserByHexChat(),"PASS");
-                send(client.getClientfd(), message.c_str(), message.size(), 0);
-            }
-            else
-            {
-                std::string message = "1 parameter is allowed for PASS command\n";
-                send(client.getClientfd(), message.c_str(), message.size(), 0);
-            }
-        }
-        else if(buffer.size() == 2)
-        {
-            if (buffer[1] == _svPassword)
-            {
-                client.setIsPasswordProtected(true);
-                std::string message = "Password accepted\n";
-                send(client.getClientfd(), message.c_str(), message.size(), 0);
-            }
-            else
-            {
-                std::string message = ERR_PASSWDMISMATCH(client.getUserByHexChat());
-                send(client.getClientfd(), message.c_str(), message.size(), 0);
-            }
-        }
-    }
-}
-void Server::nick(std::vector<std::string> buffer, Client &client)
-{
-	if (!client.getIsPasswordProtected())
+	FD_SET(this->_socket, &readfds);
+	while (true)
 	{
-		Utils::ut_write(client.getClientfd(), ERR_NOTPASSWORDED(client.getUserByHexChat()));
-		return;
-	}
-	std::string nickname;
-	if (buffer.size() < 2)
-	{
-		Utils::ut_write(client.getClientfd(), ERR_NONICKNAMEGIVEN(client.getUserByHexChat()));
-		return;
-	}
-	else if (buffer[1].size() > 9 || buffer[1].size() < 1)
-	{
-		Utils::ut_write(client.getClientfd(), ERR_ERRONEUSNICKNAME(client.getUserByHexChat(), buffer[0]));
-		return;
-	}
-	nickname = buffer[1];
-	if (nickname[0] == '#')
-	{
-		Utils::ut_write(client.getClientfd(), ERR_ERRONEUSNICKNAME(client.getUserByHexChat(), nickname));
-		return;
-	}
-	
-    if (client.getNickname() != nickname && isNicknameInUse(nickname))
-    {
-        Utils::ut_write(client.getClientfd(), ERR_NICKNAMEINUSE(client.getUserByHexChat(), nickname));
-        return;
-    }
-
-	std::string oldnickname = client.getNickname();
-	if (!client.getNickname().empty())
-        texter("user " + client.getNickname() + " has changed nickname to " + nickname, std::cout, MAGENTA);
-	client.setNickname(nickname);
-    Utils::ut_write(client.getClientfd(), RPL_NICK(oldnickname, client.getUsername(), client.getIp(), nickname));
-	FD_SET(client.getClientfd(), &_writefds);
-
-    std::vector<Channel>::iterator it;
-	for (it = _channels.begin(); it != _channels.end(); ++it)
-	{
-        std::vector<Client>::iterator cit;
-
-		for (cit = it->getClients().begin(); cit != it->getClients().end(); ++cit)
+		while (isReadyToSelect)
 		{
-			if (oldnickname == cit->getNickname())
+			readFdsCopy = readfds;
+			writeFdsCopy = writefds;
+			if (select(Utils::getMaxFd(clients, this->_socket) + 1, &readFdsCopy, &writeFdsCopy, NULL, 0) < 0)
 			{
-				cit->setNickname(nickname);
-				it->sendToAll(RPL_NICK(oldnickname, client.getUsername(), client.getIp(), nickname));
-				// responseAllClientResponseToGui(*cit, *it);
+				throw Exception("Select failed");
+			}
+			isReadyToSelect = false;
+		}
+		if (FD_ISSET(this->_socket, &this->readFdsCopy))
+		{
+			int newSocket = accept(this->_socket, (sockaddr *)&clientAddress, &templen);
+			if (newSocket < 0)
+			{
+				throw Exception("Accept failed");
+			}
+			if (fcntl(newSocket, F_SETFL, O_NONBLOCK) < 0)
+				throw Exception("Fcntl failed on Client");
+			int port = ntohs(clientAddress.sin_port);
+			Client newClient(newSocket, port);
+			char	*ip = inet_ntoa(clientAddress.sin_addr);
+			strcpy(newClient._ip, ip);
+			clients.push_back(newClient);
+			FD_SET(newSocket, &readfds);
+			TextEngine::green("New connection from ", TextEngine::printTime(cout)) << newClient._ip << ":" << newClient.getPort() << std::endl;
+			isReadyToSelect = true;
+			continue;
+		}
+		for (VECT_ITER_CLI a = clients.begin(); a != clients.end() && !isReadyToSelect; a++)
+		{
+			if (FD_ISSET(a->getFd(), &this->readFdsCopy))
+			{
+				bytesRead = read(a->getFd(), this->buffer, 1024);
+				if (bytesRead <= 0)
+				{
+					for (VECT_ITER_CHA it = this->channels.begin(); it != this->channels.end(); it++){
+						if (it->isClientInChannel(a->getFd())){
+							it->removeClient(a->getFd());
+							Utils::instaWriteAll(it->getClients(), RPL_QUIT(a->getUserByHexChat(), "Leaving"));
+							responseAllClientResponseToGui(*a, *it);
+						}
+					}
+					FD_CLR(a->getFd(), &readfds);
+					FD_CLR(a->getFd(), &writefds);
+					close(a->getFd());
+					TextEngine::blue("Client ", TextEngine::printTime(cout)) << a->_ip << ":" << a->getPort() << " disconnected" << std::endl;
+					clients.erase(a);
+					isReadyToSelect = true;
+				}
+				else
+				{
+					this->buffer[bytesRead] = '\0';
+					string msg = this->buffer;
+					if (msg == "\n")
+					{
+						a->setBuffer(a->getBuffer() + msg);
+						isReadyToSelect = true;
+					}
+					if (msg[msg.length() - 1] != '\n')
+					{
+						a->setBuffer(a->getBuffer() + msg);
+						isReadyToSelect = true;
+						break;
+					}
+					runCommand(a->getBuffer() + msg, *a);
+					a->setBuffer("");
+					Utils::clearBuffer(this->buffer, 1024);
+				}
+				isReadyToSelect = true;
+				break;
+			}
+		}
+		for (VECT_ITER_CLI a = clients.begin(); a != clients.end() && !isReadyToSelect; ++a)
+		{
+			if (FD_ISSET(a->getFd(), &this->writeFdsCopy))
+			{
+				int bytesWritten = write(a->getFd(), a->getmesagesFromServer()[0].c_str(), a->getmesagesFromServer()[0].length());
+				a->getmesagesFromServer().erase(a->getmesagesFromServer().begin());
+				if (bytesWritten < 0)
+				{
+					throw Exception("Write failed");
+				}
+				if (a->getmesagesFromServer().empty()){
+					FD_CLR(a->getFd(), &writefds);
+				}
+				if (bytesWritten == 0)
+				{
+					for (VECT_ITER_CHA it = this->channels.begin(); it != this->channels.end(); it++){
+						if (it->isClientInChannel(a->getFd())){
+							it->removeClient(a->getFd());
+							Utils::instaWriteAll(it->getClients(), RPL_QUIT(a->getUserByHexChat(), "Leaving"));
+							responseAllClientResponseToGui(*a, *it);
+						}
+					}
+					FD_CLR(a->getFd(), &writefds);
+					FD_CLR(a->getFd(), &readfds);
+					close(a->getFd());
+					this->clients.erase(a);
+					TextEngine::blue("Client ", TextEngine::printTime(cout)) << a->_ip << ":" << a->getPort() << " disconnected" << std::endl;
+				}
+				Utils::clearBuffer(this->buffer, 1024);
+				isReadyToSelect = true;
 				break;
 			}
 		}
 	}
-	if (client.getIsRegistered() == false && !client.getUsername().empty() && !client.getRealname().empty())
-	{
-		client.setIsRegistered(true);
-		Utils::ut_write(client.getClientfd(), RPL_WELCOME(client.getNickname(), client.getUserByHexChat()));
-        Server::texter("user " + client.getNickname() + " has been registered", std::cout, MAGENTA);
-	}
-
-
 }
 
-void Server::user(std::vector<std::string> buffer, Client &client)
+void Server::runCommand(C_STR_REF command, Client &client)
 {
-    std::cout << "User command" << std::endl;
-    if (!client.getIsPasswordProtected())
-    {
-        std::string message = ERR_NOTPASSWORDED(client.getUserByHexChat());
-        send(client.getClientfd(), message.c_str(), message.size(), 0);
-    }
-    else if(client.getNickname().empty())
-    {
-        std::string message = ERR_NONICKNAMEGIVEN(client.getUserByHexChat());
-        send(client.getClientfd(), message.c_str(), message.size(), 0);
-    }
-    else if (client.getIsRegistered())
-    {
-        std::string message = ERR_ALREADYREGISTRED(client.getUserByHexChat());
-        send(client.getClientfd(), message.c_str(), message.size(), 0);
-    }
-    else
-    {
-        if (buffer.size() != 5)
-        {
-            if (buffer.size() < 5)
-            {
-                std::string message = ERR_NEEDMOREPARAMS(client.getUserByHexChat(),"USER");
-                send(client.getClientfd(), message.c_str(), message.size(), 0);
-            }
-            else
-            {
-                std::string message = "4 parameters are allowed for USER command\n";
-                send(client.getClientfd(), message.c_str(), message.size(), 0);
-            }
-        }
-        else if(buffer.size() == 5)
-        {
-            client.setUsername(buffer[1]);
-            client.setHostname(buffer[2]);
-            client.setServername(buffer[3]);
-            client.setRealname(buffer[4]);
-            client.setIsRegistered(true);
-            std::string message = "Successfully registered user\n";
-            send(client.getClientfd(), message.c_str(), message.size(), 0);
-        }
-    }
+	TextEngine::underline("----------------\n", cout);
+	TextEngine::cyan("Input is : " + command, cout);
+
+	VECT_STR softSplit = Utils::ft_split(command, "\n");
+	if (softSplit.size() == 0) return;
+	for (size_t i = 0; i < softSplit.size(); i++)
+	{
+		string trimmedLine = Utils::ft_trim(softSplit[i], " \t\r");
+		if (trimmedLine.empty()) return;
+		VECT_STR splitFirst = Utils::ft_firstWord(trimmedLine);
+		std::map<std::string, void (Server::*)(const string &, Client &)> ::iterator it = this->_commands.find(splitFirst[0]);
+		if (it != this->_commands.end())
+		{
+			(this->*_commands[splitFirst[0]])(splitFirst[1], client);
+		}
+		else
+		{
+			Utils::instaWrite(client.getFd(), ERR_UNKNOWNCOMMAND(client.getUserByHexChat(),splitFirst[0]));
+		}
+	}
+}
+
+void Server::responseAllClientResponseToGui(Client &client, Room &room)  {
+	string message = "";
+	for (VECT_ITER_CLI it = room.getClients().begin(); it != room.getClients().end(); it++){
+		if (room.isOperator(*it))
+			message += "@";
+		message += (*it).getNick() + " ";
+	}
+	Utils::instaWriteAll(room.getClients(), RPL_NAMREPLY(client.getNick(), room.getName(), message));
+	Utils::instaWriteAll(room.getClients(), RPL_ENDOFNAMES(client.getNick(), room.getName()));
+}
+
+Client &Server::getClientByNick(C_STR_REF nick){
+	VECT_ITER_CLI it = this->clients.begin();
+	for (; it != this->clients.end(); ++it)
+	{
+		if (it->getNick() == nick)
+			return *it;
+	}
+	return *it;
+}
+
+
+Room	&Server::getRoom(C_STR_REF roomName){
+	VECT_ITER_CHA it = this->channels.begin();
+	for (; it != this->channels.end(); ++it)
+	{
+		if (it->getName() == roomName)
+			return *it;
+	}
+	return *it;
+}
+
+vector<Room> &Server::getRooms(){
+	return this->channels;
+}
+
+bool	Server::isRoom(C_STR_REF roomName){
+	VECT_ITER_CHA it = this->channels.begin();
+	for (; it != this->channels.end(); ++it)
+	{
+		if (it->getName() == roomName)
+			return true;
+	}
+	return false;
+}
+
+void	Server::addRoom(const Room &room){
+	this->channels.push_back(room);
+}
+
+void	Server::addClient(const Client &client){
+	this->clients.push_back(client);
+}
+
+vector<Client> &Server::getClients(){
+	return this->clients;
+}
+
+bool	Server::isClientInRoom(Room &room, const Client &client){
+	VECT_ITER_CLI it = room.getClients().begin();
+	for (; it != room.getClients().end(); ++it)
+	{
+		if (it->getNick() == client.getNick())
+			return true;
+	}
+	return false;
+}
+
+bool	Server::isClientInRoom(Client &client, string &room){
+	VECT_ITER_CHA it = this->channels.begin();
+	for (; it != this->channels.end(); ++it)
+	{
+		if (it->getName() == room)
+		{
+			VECT_ITER_CLI cit = it->getClients().begin();
+			for (; cit != it->getClients().end(); ++cit)
+			{
+				if (cit->getNick() == client.getNick())
+					return true;
+			}
+		}
+	}
+	return false;
+}
+
+bool	Server::isClientInRoom(Room &room, string &nick){
+	VECT_ITER_CLI it = room.getClients().begin();
+	for (; it != room.getClients().end(); ++it)
+	{
+		if (it->getNick() == nick)
+			return true;
+	}
+	return false;
+}
+
+void	Server::removeClient(int fd){
+	VECT_ITER_CLI it = this->clients.begin();
+	for (; it != this->clients.end(); ++it)
+	{
+		if (it->getFd() == fd)
+		{
+			this->clients.erase(it);
+			return;
+		}
+	}
+}
+
+
+void	Server::initFunctions() {
+	this->_commands["PASS"] = &Server::pass;
+	this->_commands["pass"] = &Server::pass;
+	this->_commands["NICK"] = &Server::nick;
+	this->_commands["nick"] = &Server::nick;
+	this->_commands["USER"] = &Server::user;
+	this->_commands["user"] = &Server::user;
+	this->_commands["CAP"] = &Server::cap;
+	this->_commands["cap"] = &Server::cap;
+	this->_commands["JOIN"] = &Server::join;
+	this->_commands["join"] = &Server::join;
+	this->_commands["TOPIC"] = &Server::topic;
+	this->_commands["topic"] = &Server::topic;
+	this->_commands["MODE"] = &Server::mode;
+	this->_commands["mode"] = &Server::mode;
+	this->_commands["part"] = &Server::part;
+	this->_commands["PART"] = &Server::part;
+	this->_commands["list"] = &Server::list;
+	this->_commands["LIST"] = &Server::list;
+	this->_commands["NAMES"] = &Server::names;
+	this->_commands["names"] = &Server::names;
+	this->_commands["PRIVMSG"] = &Server::privmsg;
+	this->_commands["privmsg"] = &Server::privmsg;
+	this->_commands["join"] = &Server::join;
+	this->_commands["JOIN"] = &Server::join;
+	this->_commands["WHOIS"] = &Server::whois;
+	this->_commands["whois"] = &Server::whois;
+	this->_commands["NOTICE"] = &Server::notice;
+	this->_commands["notice"] = &Server::notice;
+	this->_commands["QUIT"] = &Server::quit;
+	this->_commands["quit"] = &Server::quit;
+	this->_commands["KICK"] = &Server::kick;
+	this->_commands["kick"] = &Server::kick;
+	this->_commands["INVITE"] = &Server::invite;
+	this->_commands["invite"] = &Server::invite;
+	this->_commands["OP"] = &Server::op;
+	this->_commands["op"] = &Server::op;
+	this->_commands["WHO"] = &Server::who;
+	this->_commands["who"] = &Server::who;
+	this->_commands["PING"] = &Server::ping;
+	this->_commands["ping"] = &Server::ping;
 }

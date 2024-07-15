@@ -1,69 +1,62 @@
-#ifndef CLIENT_HPP
-#define CLIENT_HPP
+#pragma once
 
 #include <string>
-#include "../include/Exception.hpp"
-#include "../include/Protocol.hpp"
+#include <vector>
+#include "Define.hpp"
+#include <netinet/in.h>
+
+using std::string;
+using std::vector;
+
 
 class Client
 {
-    private:
-        //copy ile assignment olabilir kalsın şimdilik
+public:
+	Client();
+	Client(int fd, int port);
+	Client(const Client &other);
+	Client			&operator=(const Client &other);
 
-        int _clientfd;
-        std::string _nickname;
-        std::string _username;
-        std::string _realname;
-        std::string _hostname;
-        std::string _servername;
-        std::string _password;
-        int _type;
-        int _port;
-        char *_ip;
+	int				getFd() const;
+	int				getPort() const;
+	string			getBuffer() const;
+	bool			getIsRegistered() const;
+	bool			getIsPassworded() const;
+	int				getType() const;
 
-        bool _isRegistered;
-        bool _isOperator;
-        bool _isPasswordProtected;
+	vector<string>	&getmesagesFromServer();
+	string		  	getNick() const;
+	string		  	getUserName() const;
+	string		  	getRealName() const;
+	string		  	getHostName() const;
+	string		  	getServerName() const;
 
-    public:
-        Client();
-        ~Client();
-        Client(int fd);
+	void			setHostName(C_STR_REF hostName);
+	void			setServerName(C_STR_REF serverName);
+	void			setNick(C_STR_REF nick);
+	void			setRegistered(bool val);
+	void			setPassworded(bool val);
+	void			setBuffer(C_STR_REF str);
+	void			setType(int type);
 
-        //Setter
-        inline void setClientfd(int clientfd) { _clientfd = clientfd;}
-        inline void setNickname(std::string nickname) { _nickname = nickname; }
-        inline void setHostname(std::string hostname) { _hostname = hostname; }
-        inline void setServername(std::string servername) { _servername = servername; }
-        inline void setUsername(std::string username) { _username = username; }
-        inline void setRealname(std::string realname) { _realname = realname;}
-        inline void setPassword(std::string password) { _password = password;}
-        inline void setType(int type) { _type = type;}
-        inline void setPort(int port) { _port = port;}
-        inline void setIp(char *ip) { _ip = ip;}
+	void			setUserName(C_STR_REF userName);
+	void			setRealName(C_STR_REF realName);
+	string			getUserByHexChat() const;
+	virtual			~Client();
+	char			_ip[INET_ADDRSTRLEN]; // 123.123.123.123 + \0
 
-        inline void setIsRegistered(bool isRegistered) { _isRegistered = isRegistered;}
-        inline void setIsOperator(bool isOperator) { _isOperator = isOperator;}
-        inline void setIsPasswordProtected(bool isPasswordProtected) { _isPasswordProtected = isPasswordProtected;}
-
-        //Getter
-        inline int getClientfd() const { return _clientfd;}
-        std::string getNickname() const { return _nickname;}
-        std::string getHostname() const { return _hostname;}
-        std::string getServername() const { return _servername;}
-        std::string getUsername() const { return _username;}
-        std::string getRealname() const { return _realname;}
-        std::string getPassword() const { return _password;}
-        int getType() const { return _type;}
-        int getPort() const { return _port;}
-        char *getIp() const { return _ip;}
-
-        bool getIsRegistered() const { return _isRegistered;}
-        bool getIsOperator() const { return _isOperator;}
-        bool getIsPasswordProtected() const { return _isPasswordProtected;}
-    	std::string			getUserByHexChat() const;
-
-        bool operator==(const Client& other) const;
+	bool			operator==(const Client &rhs) const;
+private:
+	int				_type; // 1:hex 3:bot
+	int				_fd;
+	int				_port;
+	string			buffer;
+	vector<string>	_messagesFromServer;
+	bool			isRegistered;
+	bool			isPassworded;
+	string			_nick;
+	string			_userName;
+	string			_hostName;
+	string			_serverName;
+	string			_realName;
 };
-
-#endif

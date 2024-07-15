@@ -1,29 +1,29 @@
-#ifndef UTILS_HPP
-#define UTILS_HPP
+#pragma once
 
-#include <iostream>
+
+#define USAGE "./ircserv [port] [password]"
+
 #include <string>
 #include <vector>
-#include <unistd.h>
-#include <sys/socket.h>
-#include <iomanip>
-#include <sstream>
-#include "../include/Server.hpp"
-#include "../include/Client.hpp"
+#include "Define.hpp"
 
-class Server;
+using std::string;
+using std::vector;
 class Client;
 
-namespace Utils
-{
-    std::vector<std::string> split(const std::string &s, char delim);
-    std::string trim(const std::string &s, const std::string toTrim);
-    std::string join(std::vector<std::string> v, std::string delim, int start = 0 , int end = -1);
-    void ut_write(int fd, const std::string &s);
-    void ut_send(int fd, const std::string &s);
-    void ut_sendall(int fd, const std::string &s, Server &server);
-    std::string getTime();
-    std::string toUpper(const std::string &s);
+namespace Utils {
+	int					ft_stoi(C_STR_REF str);
+	void				clearBuffer(char *buffer, int size);
+	std::string			ft_trim(C_STR_REF str, C_STR_REF delims);
+	VECT_STR			ft_firstWord(C_STR_REF str);
+	VECT_STR			ft_split(C_STR_REF str, C_STR_REF delims);
+	bool				isEqualNonSensitive(const string& str1, const string& str2);
+	std::string			getTime();
+	void				instaWriteAll(std::vector<Client> clients, std::string message);
+	void				instaWrite(int fd, std::string message);
+	std::string			ft_join(C_VECT_STR_R vec, C_STR_REF delim, int start);
+	void				instaSend(int fd, std::string message);
+	int					getMaxFd(const vector<Client> &v, int serverfd);
+	std::string			ft_getNick(const std::string& str);
+	std::string			ft_itoa(int n);
 }
-
-#endif // UTILS_HPP

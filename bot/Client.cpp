@@ -1,6 +1,6 @@
 #include "Client.hpp"
 #include <cstring>
-#include <unistd.h>
+
 Client::Client() :
 	_ip("\0"), _fd(-1), _port(-1), isRegistered(false), isPassworded(false) {}
 
@@ -75,7 +75,7 @@ string Client::getServerName() const {
 	return _serverName;
 }
 
-VECT_STR &Client::getmesagesFromServer() {
+vector<string> &Client::getmesagesFromServer() {
 	return _messagesFromServer;
 }
 
@@ -115,13 +115,9 @@ void Client::setServerName(C_STR_REF serverName) {
 	_serverName = serverName;
 }
 
-Client::~Client() { /* value sementics so no need to delete anything (select error) */ }
+Client::~Client() {}
 
 string Client::getUserByHexChat() const {
 	std::string strIP = this->_ip;
 	return this->_nick + (this->_userName.empty() ? "" : "!~" + this->_userName) + (strIP.empty() ? "" : "@" + strIP);
-}
-
-bool	Client::operator==(const Client &rhs) const {
-	return (rhs.getFd() == this->getFd());
 }
